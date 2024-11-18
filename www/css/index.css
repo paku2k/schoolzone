@@ -36,9 +36,55 @@ body {
     text-transform:uppercase;
     width:100%;
 }
+.app {
+    width: 100%;
+    height: 100vh;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+}
 
-#map{
-	position: fixed;
-	top: 10px;
-	left: 10px;
+h1 {
+    text-align: center;
+    margin: 10px 0;
+}
+
+#map {
+    flex: 1;
+    width: 100%;
+    min-height: 500px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.legend {
+    background: white;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+}
+
+.legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 8px;
+}
+
+.custom-div-icon {
+    background: none;
+    border: none;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .app {
+        background-color: #1a1a1a;
+        color: #ffffff;
+    }
+
+    .legend {
+        background: #333;
+        color: #ffffff;
+    }
 }

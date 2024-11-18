@@ -21,44 +21,139 @@
 // See https://cordova.apache.org/docs/en/latest/cordova/events/events.html#deviceready
 document.addEventListener('deviceready', onDeviceReady, false);
 
-function onDeviceReady() {
-    // Cordova is now initialized. Have fun!
+let map;
+let schoolsLayer;
+let universitiesLayer;
 
-    console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
-    document.getElementById('deviceready').classList.add('ready');
+function onDeviceReady() {
+    // Initialize the map and features once the device is ready
+    initMap();
 }
 
-var map = L.map("map", {zoomControl: false});  // L = Leaflet object ("map" --> id of the html section), zoomControl = switch off zoom buttons
+function initMap() {
+    // Initialize the map
+    map = L.map('map').setView([51.505, -0.09], 13); // Default view of London
 
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-// Tile Map Server (TMS)
+    // Create layer groups
+    schoolsLayer = L.layerGroup().addTo(map);
+    universitiesLayer = L.layerGroup().addTo(map);
 
-// OpenStreetMap
+    // Add controls and event listeners
+    setupMapControls();
+    
+    // Initial load of markers
+    updateMarkers();
 
-var osmURL = "https://{s}.tile.osm.org/{z}/{x}/{y}.png";  // s: server, z: zoom level, x: column, y: row
+    // Try to get user's location
+    autocenter();
+}
 
+function setupMapControls() {
+    // Add legend
+    const legend = L.control({position: 'bottomright'});
+    legend.onAdd = function(map) {
+        const div = L.DomUtil.create('div', 'legend');
+        div.innerHTML = `
+            <i style="background: #e74c3c"></i>Schools<br>
+            <i style="background: #2980b9"></i>Universities
+        `;
+        return div;
+    };
+    legend.addTo(map);
 
-// Attribution
+    // Add layer controls
+    const overlayMaps = {
+        "Schools": schoolsLayer,
+        "Universities": universitiesLayer
+    };
+    L.control.layers(null, overlayMaps).addTo(map);
 
-var osmAtt = "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors";
+    // Update markers when map moves
+    map.on('moveend', updateMarkers);
+}
 
+// Icons for different types of institutions
+const schoolIcon = L.divIcon({
+    html: '<div style="background-color: #e74c3c; width: 10px; height: 10px; border-radius: 50%;"></div>',
+    className: 'custom-div-icon'
+});
 
-// Leaflet Layer
+const universityIcon = L.divIcon({
+    html: '<div style="background-color: #2980b9; width: 10px; height: 10px; border-radius: 50%;"></div>',
+    className: 'custom-div-icon'
+});
 
-var osm = L.tileLayer(osmURL, {attribution: osmAtt});
+async function fetchEducationalInstitutions(bounds) {
+    const query = `
+        [out:json][timeout:25];
+        (
+            node["amenity"="school"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+            node["amenity"="university"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+        );
+        out body;
+        >;
+        out skel qt;
+    `;
 
+    try {
+        const response = await fetch('https://overpass-api.de/api/interpreter', {
+            method: 'POST',
+            body: query
+        });
+        const data = await response.json();
+        return data.elements;
+    } catch (error) {
+        console.error('Error fetching data:', error);
+        return [];
+    }
+}
 
-// Show Map
+async function updateMarkers() {
+    const bounds = map.getBounds();
+    const elements = await fetchEducationalInstitutions(bounds);
 
-map.setView([0.0, 0.0], 1); // [0.0, 0.0] = screen center, Zoom level = 1
-map.addLayer(osm)
+    // Clear existing markers
+    schoolsLayer.clearLayers();
+    universitiesLayer.clearLayers();
 
+    elements.forEach(element => {
+        if (element.type === 'node') {
+            const marker = L.marker([element.lat, element.lon], {
+                icon: element.tags.amenity === 'school' ? schoolIcon : universityIcon
+            });
 
-function centerMap(){
-	if (point.geometry.coordinates.length === 0){
-		showToast("Geolocation not available.");
-		return;
-	}
-	
-	map.setView(point.geometry.coordinates.toReversed(), 20);
+            const popupContent = `
+                <strong>${element.tags.name || 'Unnamed'}</strong><br>
+                Type: ${element.tags.amenity}<br>
+                ${element.tags.operator ? 'Operator: ' + element.tags.operator + '<br>' : ''}
+            `;
+
+            marker.bindPopup(popupContent);
+
+            if (element.tags.amenity === 'school') {
+                schoolsLayer.addLayer(marker);
+            } else {
+                universitiesLayer.addLayer(marker);
+            }
+        }
+    });
+}
+
+function autocenter() {
+    if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                map.setView([position.coords.latitude, position.coords.longitude], 13);
+                updateMarkers();
+            },
+            function(error) {
+                console.error('Error getting location:', error);
+            }
+        );
+    }
 }
