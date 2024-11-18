@@ -21,9 +21,11 @@
 // See https://cordova.apache.org/docs/en/latest/cordova/events/events.html#deviceready
 document.addEventListener('deviceready', onDeviceReady, false);
 
-var map;
-var schoolsLayer;
-var universitiesLayer;
+var map;  // Base Map
+var schoolsLayer; // Overlay Map
+var universitiesLayer; // Overlay Map
+
+onDeviceReady();
 
 function onDeviceReady() {
     // Initialize the map and features once the device is ready
@@ -43,8 +45,8 @@ function initMap() {
     map.addLayer(osm);
 
     // Create layer groups
-    schoolsLayer = L.layerGroup().addTo(map);
-    universitiesLayer = L.layerGroup().addTo(map);
+    schoolsLayer = L.layerGroup();
+    universitiesLayer = L.layerGroup();
 
     // Add controls and event listeners
     setupMapControls();
