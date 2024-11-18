@@ -25,6 +25,8 @@ var map;
 var schoolsLayer;
 var universitiesLayer;
 
+onDeviceReady();
+
 function onDeviceReady() {
     // Initialize the map and features once the device is ready
     initMap();
