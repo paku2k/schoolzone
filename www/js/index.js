@@ -20,18 +20,35 @@
 // Wait for the deviceready event before using any of Cordova's device APIs.
 // See https://cordova.apache.org/docs/en/latest/cordova/events/events.html#deviceready
 document.addEventListener('deviceready', onDeviceReady, false);
-
 var map;  // Base Map
 var schoolsLayer; // Overlay Map
 var universitiesLayer; // Overlay Map
+var schoolsLayerCheckbox = true;
+var universityLayerCheckbox = true;
 
 onDeviceReady();
 
-onDeviceReady();
+
+function haversineDist(lat1, lon1, lat2, lon2) {
+    // source: https://www.movable-type.co.uk/scripts/latlong.html
+    const R = 6371e3; // metres
+    const phi1 = lat1 * Math.PI/180; // φ, λ in radians
+    const phi2 = lat2 * Math.PI/180;
+    const d_phi = (lat2-lat1) * Math.PI/180;
+    const d_lam = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(d_phi/2) * Math.sin(d_phi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(d_lam/2) * Math.sin(d_lam/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // in metres
+}
 
 function onDeviceReady() {
     // Initialize the map and features once the device is ready
     initMap();
+    console.log(haversineDist(39.466, -0.375, 39.978, -0.055)); // valencia - castellon distance
 }
 
 function initMap() {
@@ -47,8 +64,8 @@ function initMap() {
     map.addLayer(osm);
 
     // Create layer groups
-    schoolsLayer = L.layerGroup();
-    universitiesLayer = L.layerGroup();
+    schoolsLayer = L.layerGroup().addTo(map);
+    universitiesLayer = L.layerGroup().addTo(map);
 
     // Add controls and event listeners
     setupMapControls();
@@ -80,6 +97,20 @@ function setupMapControls() {
     };
     L.control.layers(null, overlayMaps).addTo(map);
 
+    layer_selector = document.getElementsByClassName("leaflet-control-layers-selector")
+    console.log(layer_selector)
+    for (let i = 0; i < layer_selector.length; i++) {
+        layer_selector[i].addEventListener('change', (event) => {
+            if (event.currentTarget.checked) {
+              if (i == 0){ schoolsLayerCheckbox = true;}
+              else if (i == 1) {universityLayerCheckbox = true;}
+            } else {
+                if (i == 0){ schoolsLayerCheckbox = false;}
+                else if (i == 1) {universityLayerCheckbox = false;}
+            }
+            console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
+          })
+    }
     // Update markers when map moves
     map.on('moveend', updateMarkers);
 }
@@ -100,7 +131,7 @@ async function fetchEducationalInstitutions(bounds) {
         [out:json][timeout:25];
         (
             node["amenity"="school"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-            node["amenity"="university"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+            relation["amenity"="university"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
         );
         out body;
         >;
@@ -120,15 +151,26 @@ async function fetchEducationalInstitutions(bounds) {
     }
 }
 
+function sortPOIsByDistance(pois, currentLat, currentLon) {
+    return pois.map(poi => ({
+        ...poi,
+        distance: haversineDist(currentLat, currentLon, poi.lat, poi.lon)
+    })).sort((a, b) => a.distance - b.distance);
+}
+
 async function updateMarkers() {
     const bounds = map.getBounds();
-    const elements = await fetchEducationalInstitutions(bounds);
+    var elements = await fetchEducationalInstitutions(bounds);
 
     // Clear existing markers
     schoolsLayer.clearLayers();
     universitiesLayer.clearLayers();
 
+    elements = sortPOIsByDistance(elements, 39.466, -0.375); // TODO: update with current position
+    console.log(elements);
+
     elements.forEach(element => {
+        
         if (element.type === 'node') {
             const marker = L.marker([element.lat, element.lon], {
                 icon: element.tags.amenity === 'school' ? schoolIcon : universityIcon
