@@ -27,3 +27,38 @@ function onDeviceReady() {
     console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
     document.getElementById('deviceready').classList.add('ready');
 }
+
+var map = L.map("map", {zoomControl: false});  // L = Leaflet object ("map" --> id of the html section), zoomControl = switch off zoom buttons
+
+
+// Tile Map Server (TMS)
+
+// OpenStreetMap
+
+var osmURL = "https://{s}.tile.osm.org/{z}/{x}/{y}.png";  // s: server, z: zoom level, x: column, y: row
+
+
+// Attribution
+
+var osmAtt = "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors";
+
+
+// Leaflet Layer
+
+var osm = L.tileLayer(osmURL, {attribution: osmAtt});
+
+
+// Show Map
+
+map.setView([0.0, 0.0], 1); // [0.0, 0.0] = screen center, Zoom level = 1
+map.addLayer(osm)
+
+
+function centerMap(){
+	if (point.geometry.coordinates.length === 0){
+		showToast("Geolocation not available.");
+		return;
+	}
+	
+	map.setView(point.geometry.coordinates.toReversed(), 20);
+}
