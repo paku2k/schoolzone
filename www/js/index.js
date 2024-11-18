@@ -21,9 +21,9 @@
 // See https://cordova.apache.org/docs/en/latest/cordova/events/events.html#deviceready
 document.addEventListener('deviceready', onDeviceReady, false);
 
-let map;
-let schoolsLayer;
-let universitiesLayer;
+var map;
+var schoolsLayer;
+var universitiesLayer;
 
 function onDeviceReady() {
     // Initialize the map and features once the device is ready
@@ -32,12 +32,15 @@ function onDeviceReady() {
 
 function initMap() {
     // Initialize the map
-    map = L.map('map').setView([51.505, -0.09], 13); // Default view of London
+    map = L.map('map', {zoomControl: false});
 
     // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    var osmURL = "https://{s}.tile.osm.org/{z}/{x}/{y}.png";  // s: server, z: zoom level, x: column, y: row
+    var osmAtt = "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors";
+    var osm = L.tileLayer(osmURL, {attribution: osmAtt});
+
+    map.setView([39.48, -0.34], 10);
+    map.addLayer(osm);
 
     // Create layer groups
     schoolsLayer = L.layerGroup().addTo(map);
