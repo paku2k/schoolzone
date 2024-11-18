@@ -47,6 +47,7 @@ function haversineDist(lat1, lon1, lat2, lon2) {
 
     return R * c; // in metres
 }
+onDeviceReady();
 
 function onDeviceReady() {
     // Initialize the map and features once the device is ready
@@ -266,7 +267,7 @@ async function fetchEducationalInstitutions(bounds) {
         [out:json][timeout:25];
         (
             node["amenity"="school"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-            relation["amenity"="university"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+            node["amenity"="university"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
         );
         out body;
         >;
