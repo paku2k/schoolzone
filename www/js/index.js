@@ -24,8 +24,11 @@ document.addEventListener('deviceready', onDeviceReady, false);
 var map;  // Base Map
 var schoolsLayer; // Overlay Map
 var universitiesLayer; // Overlay Map
+var watchId = null; // Store position watch ID
+var isTracking = false; // Track if we're following user position
+var userMarker = null; // Marker for user's position
+var trackingButton; // Control button for tracking
 
-onDeviceReady();
 
 onDeviceReady();
 
@@ -56,8 +59,140 @@ function initMap() {
     // Initial load of markers
     updateMarkers();
 
+    // Create user location marker with custom style
+    userMarker = L.circleMarker([0, 0], {
+        radius: 8,
+        fillColor: "#3388ff",
+        color: "#fff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.8
+    });
+
+    // Tracking (Toggle On/Off)
+    addTrackingControl();
+
     // Try to get user's location
     autocenter();
+}
+
+// Button to toggle on and off
+function addTrackingControl() {
+    const TrackingControl = L.Control.extend({
+        options: {
+            position: 'topleft'
+        },
+
+        onAdd: function(map) {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            trackingButton = L.DomUtil.create('a', 'leaflet-control-tracking', container);
+            trackingButton.href = '#';
+            trackingButton.innerHTML = '📍'; // Location pin emoji
+            trackingButton.title = 'Track my location';
+            trackingButton.style.fontSize = '18px';
+            trackingButton.style.textAlign = 'center';
+            trackingButton.style.lineHeight = '30px';
+            trackingButton.style.backgroundColor = 'white';
+            trackingButton.style.width = '30px';
+            trackingButton.style.height = '30px';
+            trackingButton.style.display = 'block';
+
+            L.DomEvent.on(trackingButton, 'click', function(e) {
+                L.DomEvent.preventDefault(e);
+                toggleTracking();
+            });
+
+            return container;
+        }
+    });
+
+    map.addControl(new TrackingControl());
+}
+
+function toggleTracking() {
+    isTracking = !isTracking;
+    
+    if (isTracking) {
+        // Start tracking
+        trackingButton.style.backgroundColor = '#3388ff';
+        trackingButton.style.color = 'white';
+        startTracking();
+    } else {
+        // Stop tracking
+        trackingButton.style.backgroundColor = 'white';
+        trackingButton.style.color = 'black';
+        stopTracking();
+    }
+}
+
+function startTracking() {
+    if (!watchId) {
+        watchId = navigator.geolocation.watchPosition(
+            updatePosition,
+            handleLocationError,
+            {
+                maximumAge: 2000,
+                timeout: 5000,
+                enableHighAccuracy: true
+            }
+        );
+    }
+}
+
+function stopTracking() {
+    if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+    }
+}
+
+function updatePosition(position) {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    
+    // Update user marker position
+    userMarker.setLatLng([lat, lng]);
+    
+    // Add marker to map if not already added
+    if (!map.hasLayer(userMarker)) {
+        userMarker.addTo(map);
+    }
+
+    // Only center map if tracking is enabled
+    if (isTracking) {
+        map.setView([lat, lng], map.getZoom());
+    }
+}
+
+function handleLocationError(error) {
+    console.error('Error getting location:', error);
+    // Optionally show error to user
+    if (error.code === error.PERMISSION_DENIED) {
+        alert('Please enable location services to use tracking features.');
+        stopTracking();
+        isTracking = false;
+        trackingButton.style.backgroundColor = 'white';
+        trackingButton.style.color = 'black';
+    }
+}
+
+function autocenter() {
+    if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                map.setView([lat, lng], 13);
+                
+                // Set initial user marker position
+                userMarker.setLatLng([lat, lng]);
+                userMarker.addTo(map);
+                
+                updateMarkers();
+            },
+            handleLocationError
+        );
+    }
 }
 
 function setupMapControls() {

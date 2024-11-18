@@ -1,11 +1,41 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="com.school.zone" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+<widget id="com.school.zone" version="1.0.0" 
+    xmlns="http://www.w3.org/ns/widgets" 
+    xmlns:cdv="http://cordova.apache.org/ns/1.0"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    
     <name>SchoolZone</name>
     <description>Sample Apache Cordova App</description>
     <author email="dev@cordova.apache.org" href="https://cordova.apache.org">
         Apache Cordova Team
     </author>
     <content src="index.html" />
+    
+    <!-- General permissions -->
     <allow-intent href="http://*/*" />
     <allow-intent href="https://*/*" />
+    
+    <!-- iOS specific settings -->
+    <platform name="ios">
+        <edit-config target="NSLocationWhenInUseUsageDescription" file="*-Info.plist" mode="merge">
+            <string>We need your location to show nearby schools and universities</string>
+        </edit-config>
+        <edit-config target="NSLocationAlwaysUsageDescription" file="*-Info.plist" mode="merge">
+            <string>We need your location to show nearby schools and universities</string>
+        </edit-config>
+    </platform>
+    
+    <!-- Android specific settings -->
+    <platform name="android">
+        <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" target="/manifest/application">
+            <application android:usesCleartextTraffic="true" />
+        </edit-config>
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATIOzzN" />
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+        </config-file>
+    </platform>
+
+    <!-- Plugins -->
+    <plugin name="cordova-plugin-geolocation" />
 </widget>
