@@ -27,6 +27,8 @@ var universitiesLayer; // Overlay Map
 
 onDeviceReady();
 
+onDeviceReady();
+
 function onDeviceReady() {
     // Initialize the map and features once the device is ready
     initMap();
