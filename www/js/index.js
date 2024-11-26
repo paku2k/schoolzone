@@ -21,6 +21,7 @@
 // See https://cordova.apache.org/docs/en/latest/cordova/events/events.html#deviceready
 document.addEventListener('deviceready', onDeviceReady, false);
 var map;  // Base Map
+var allElements; // all schools and universities
 var schoolsLayer; // Overlay Map
 var universitiesLayer; // Overlay Map
 var schoolsLayerCheckbox = true;
@@ -32,9 +33,8 @@ var trackingButton; // Control button for tracking
 const addedRadiusNode = 20 // meters of added Radius to nodes for the alarm trigger
 const addedRadiusWayRel = 10 // meters of added Radius to ways and relations for the alarm trigger
 
-onDeviceReady();
-let currentSchoolZone = null;
-const SCHOOL_ZONE_RADIUS = 100; // meters
+//onDeviceReady();
+var nearestElement = null;
 
 
 
@@ -53,12 +53,10 @@ function haversineDist(lat1, lon1, lat2, lon2) {
 
     return R * c; // in metres
 }
-onDeviceReady();
 
 function onDeviceReady() {
     // Initialize the map and features once the device is ready
     initMap();
-    console.log(haversineDist(39.466, -0.375, 39.978, -0.055)); // valencia - castellon distance
 }
 
 function initMap() {
@@ -69,9 +67,16 @@ function initMap() {
     var osmURL = "https://{s}.tile.osm.org/{z}/{x}/{y}.png";  // s: server, z: zoom level, x: column, y: row
     var osmAtt = "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors";
     var osm = L.tileLayer(osmURL, {attribution: osmAtt});
-
-    map.setView([39.48, -0.34], 15);
     map.addLayer(osm);
+
+     // Try to get user's location
+    try {
+        autocenter();
+    }
+    catch {
+        map.setView([39.48, -0.34], 15);
+        updateMarkers(null);
+    }
 
     // Create layer groups
     schoolsLayer = L.layerGroup().addTo(map);
@@ -81,7 +86,7 @@ function initMap() {
     setupMapControls();
     
     // Initial load of markers
-    updateMarkers();
+
 
     // Create user location marker with custom style
     userMarker = L.circleMarker([0, 0], {
@@ -96,8 +101,7 @@ function initMap() {
     // Tracking (Toggle On/Off)
     addTrackingControl();
 
-    // Try to get user's location
-    autocenter();
+   
 }
 
 // Button to toggle on and off
@@ -133,34 +137,31 @@ function addTrackingControl() {
     map.addControl(new TrackingControl());
 }
 
-function handleSchoolZoneAlert(position) {
-    const userLat = position.coords.latitude;
-    const userLng = position.coords.longitude;
-    
-    // Get all school markers from the schools layer
-    const schoolMarkers = [];
-    schoolsLayer.eachLayer((layer) => {
-        schoolMarkers.push(layer);
-    });
-    
-    // Check if we're near any school
-    let nearestSchool = null;
-    let minDistance = Infinity;
-    
-    schoolMarkers.forEach(marker => {
-        const schoolPos = marker.getLatLng();
-        const distance = haversineDist(userLat, userLng, schoolPos.lat, schoolPos.lng);
-        
-        if (distance < minDistance) {
-            minDistance = distance;
-            nearestSchool = marker;
+function handleSchoolZoneAlert() {
+    var currentElement = null;
+    console.log(allElements);
+
+    for(var i = 0; i < allElements.length; i++){
+        if (allElements[i].distance < 0.0) {
+            if (allElements[i].tags.amenity === 'school' && schoolsLayerCheckbox && currentElement === null) {
+                currentElement = allElements[i];
+                break;
+            }
+            else if (allElements[i].tags.amenity === 'university' && universityLayerCheckbox && currentElement === null) {
+                currentElement = allElements[i];
+                break;
+            }
         }
-    });
+        else {
+            break;
+        }
+    }
+
     
     // If we're within the school zone radius and weren't previously
-    if (minDistance <= SCHOOL_ZONE_RADIUS && currentSchoolZone === null) {
+    if (currentElement != null && nearestElement === null) {
         // Set current school zone
-        currentSchoolZone = nearestSchool;
+        nearestElement = currentElement;
         
         // Show alert box with simpler styling
         const alertBox = document.getElementById('zone_alert');
@@ -168,7 +169,7 @@ function handleSchoolZoneAlert(position) {
         alertBox.style.alignItems = 'center';
         alertBox.style.justifyContent = 'center';
         alertBox.style.gap = '10px';
-        alertBox.innerHTML = '⚠️ School Zone!';
+        alertBox.innerHTML = '⚠️ School Zone! <br>'+currentElement.tags.name;
         
         // Vibrate twice
         if (navigator.vibrate) {
@@ -179,10 +180,10 @@ function handleSchoolZoneAlert(position) {
         playBeep();
     }
     // If we're outside the radius of our current school zone
-    else if (currentSchoolZone !== null && minDistance > SCHOOL_ZONE_RADIUS) {
+    else if (nearestElement !== null && currentElement === null) {
         const alertBox = document.getElementById('zone_alert');
         alertBox.style.display = 'none';
-        currentSchoolZone = null;
+        nearestElement = null;
     }
 }
 
@@ -199,14 +200,14 @@ function toggleTracking() {
         // Start tracking
         trackingButton.style.backgroundColor = '#3388ff';
         trackingButton.style.color = 'white';
-        alert("Position tracking started!");
+        //alert("Position tracking started!");
         
         startTracking();
     } else {
         // Stop tracking
         trackingButton.style.backgroundColor = 'white';
         trackingButton.style.color = 'black';
-        alert("Position tracking stopped!");
+        //alert("Position tracking stopped!");
         stopTracking();
     }
 }
@@ -249,7 +250,8 @@ function updatePosition(position) {
         map.setView([lat, lng], map.getZoom());
     }
     // Check for school zone alerts
-    handleSchoolZoneAlert(position);
+    updateMarkers(position);
+    
 }
 
 function handleLocationError(error) {
@@ -270,13 +272,13 @@ function autocenter() {
             function(position) {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
-                map.setView([lat, lng], 13);
+                map.setView([lat, lng], 15);
                 
                 // Set initial user marker position
                 userMarker.setLatLng([lat, lng]);
                 userMarker.addTo(map);
                 
-                updateMarkers();
+                updateMarkers(position);
             },
             handleLocationError
         );
@@ -304,7 +306,7 @@ function setupMapControls() {
     L.control.layers(null, overlayMaps).addTo(map);
 
     layer_selector = document.getElementsByClassName("leaflet-control-layers-selector")
-    console.log(layer_selector)
+    //console.log(layer_selector)
     for (let i = 0; i < layer_selector.length; i++) {
         layer_selector[i].addEventListener('change', (event) => {
             if (event.currentTarget.checked) {
@@ -314,11 +316,17 @@ function setupMapControls() {
                 if (i == 0){ schoolsLayerCheckbox = false;}
                 else if (i == 1) {universityLayerCheckbox = false;}
             }
-            console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
+            //console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
           })
     }
     // Update markers when map moves
-    map.on('moveend', updateMarkers);
+    map.on('zoomend', function() {
+        updateMarkers(null);
+    });
+
+    map.on('dragend', function() {
+        updateMarkers(null);
+    });
 }
 
 // Icons for different types of institutions
@@ -376,14 +384,20 @@ function calculateRadius(pois) {
     })
 }
 
-function sortPOIsByDistance(pois, currentLat, currentLon) {
+function sortPOIsByDistance(pois, position) {
+    /*
+    console.log(position);
+    if(position != null){
+        console.log(position === null ? "position is null" : haversineDist(position.coords.latitude, position.coords.longitude, pois[0].lat, pois[0].lon) - pois[0].radius);
+    }
+        */
     return pois.map(poi => ({
         ...poi,
-        distance: haversineDist(currentLat, currentLon, poi.lat, poi.lon) - poi.radius // negative distance means you are inside the radius
+        distance: position === null ? Infinity : haversineDist(position.coords.latitude, position.coords.longitude, poi.lat, poi.lon) - poi.radius // negative distance means you are inside the radius
     })).sort((a, b) => a.distance - b.distance);
 }
 
-async function updateMarkers() {
+async function updateMarkers(position) {
     const bounds = map.getBounds();
     var elements = await fetchEducationalInstitutions(bounds);
     elements = calculateRadius(elements)
@@ -391,11 +405,12 @@ async function updateMarkers() {
     // Clear existing markers
     schoolsLayer.clearLayers();
     universitiesLayer.clearLayers();
+    
 
-    elements = sortPOIsByDistance(elements, 39.466, -0.375); // TODO: update with current position
-    console.log(elements);
+    allElements = sortPOIsByDistance(elements, position); 
+    //console.log(allElements);
 
-    elements.forEach(element => {
+    allElements.forEach(element => {
         
         if (element.type === 'node' || element.type === 'way' || element.type === 'relation') {
             const marker = L.marker([element.lat, element.lon], {
@@ -422,18 +437,5 @@ async function updateMarkers() {
             }
         }
     });
-}
-
-function autocenter() {
-    if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-            function(position) {
-                map.setView([position.coords.latitude, position.coords.longitude], 13);
-                updateMarkers();
-            },
-            function(error) {
-                console.error('Error getting location:', error);
-            }
-        );
-    }
+    handleSchoolZoneAlert();
 }
