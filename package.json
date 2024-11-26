@@ -17,9 +17,7 @@
       "android"
     ],
     "plugins": {
-      "cordova-plugin-geolocation": {
-        "GPS_REQUIRED": "true"
-      },
+      "cordova-plugin-geolocation": {},
       "cordova-plugin-vibration": {},
       "cordova-plugin-media": {}
     }

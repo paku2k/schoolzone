@@ -33,6 +33,10 @@ const addedRadiusNode = 20 // meters of added Radius to nodes for the alarm trig
 const addedRadiusWayRel = 10 // meters of added Radius to ways and relations for the alarm trigger
 
 onDeviceReady();
+let currentSchoolZone = null;
+const SCHOOL_ZONE_RADIUS = 100; // meters
+
+
 
 function haversineDist(lat1, lon1, lat2, lon2) {
     // source: https://www.movable-type.co.uk/scripts/latlong.html
@@ -49,6 +53,7 @@ function haversineDist(lat1, lon1, lat2, lon2) {
 
     return R * c; // in metres
 }
+onDeviceReady();
 
 function onDeviceReady() {
     // Initialize the map and features once the device is ready
@@ -128,6 +133,65 @@ function addTrackingControl() {
     map.addControl(new TrackingControl());
 }
 
+function handleSchoolZoneAlert(position) {
+    const userLat = position.coords.latitude;
+    const userLng = position.coords.longitude;
+    
+    // Get all school markers from the schools layer
+    const schoolMarkers = [];
+    schoolsLayer.eachLayer((layer) => {
+        schoolMarkers.push(layer);
+    });
+    
+    // Check if we're near any school
+    let nearestSchool = null;
+    let minDistance = Infinity;
+    
+    schoolMarkers.forEach(marker => {
+        const schoolPos = marker.getLatLng();
+        const distance = haversineDist(userLat, userLng, schoolPos.lat, schoolPos.lng);
+        
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestSchool = marker;
+        }
+    });
+    
+    // If we're within the school zone radius and weren't previously
+    if (minDistance <= SCHOOL_ZONE_RADIUS && currentSchoolZone === null) {
+        // Set current school zone
+        currentSchoolZone = nearestSchool;
+        
+        // Show alert box with simpler styling
+        const alertBox = document.getElementById('zone_alert');
+        alertBox.style.display = 'flex';  // Changed to flex
+        alertBox.style.alignItems = 'center';
+        alertBox.style.justifyContent = 'center';
+        alertBox.style.gap = '10px';
+        alertBox.innerHTML = '⚠️ School Zone!';
+        
+        // Vibrate twice
+        if (navigator.vibrate) {
+            navigator.vibrate([500, 200, 500]);
+        }
+        
+        // Beep
+        playBeep();
+    }
+    // If we're outside the radius of our current school zone
+    else if (currentSchoolZone !== null && minDistance > SCHOOL_ZONE_RADIUS) {
+        const alertBox = document.getElementById('zone_alert');
+        alertBox.style.display = 'none';
+        currentSchoolZone = null;
+    }
+}
+
+// Function to play beep sound twice
+function playBeep() {
+    const beep = new Audio('beep.wav');  // Make sure beep.wav is in your www folder
+    beep.play().catch(err => console.error('Error playing beep:', err));
+}
+
 function toggleTracking() {
     isTracking = !isTracking;
     
@@ -135,11 +199,14 @@ function toggleTracking() {
         // Start tracking
         trackingButton.style.backgroundColor = '#3388ff';
         trackingButton.style.color = 'white';
+        alert("Position tracking started!");
+        
         startTracking();
     } else {
         // Stop tracking
         trackingButton.style.backgroundColor = 'white';
         trackingButton.style.color = 'black';
+        alert("Position tracking stopped!");
         stopTracking();
     }
 }
@@ -181,6 +248,8 @@ function updatePosition(position) {
     if (isTracking) {
         map.setView([lat, lng], map.getZoom());
     }
+    // Check for school zone alerts
+    handleSchoolZoneAlert(position);
 }
 
 function handleLocationError(error) {
