@@ -55,6 +55,22 @@ h1 {
 	z-index: 0;
 }
 
+#zone_alert {
+    display: none;
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color:  rgba(155, 155, 155, 0.6);
+    padding: 10px 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+    font-size: 10px;
+    font-weight: bold;
+    border: 2px solid #e74c3c;  /* Same red as school markers */
+}
+
 .legend {
     background: white;
     padding: 10px;
@@ -85,4 +101,11 @@ h1 {
         background: #333;
         color: #ffffff;
     }
+
+    #zone_alert {
+        background-color: #333;
+        border-color: #e74c3c;
+        color: #ff6b6b;
+    }
 }
+
