@@ -29,8 +29,10 @@ var watchId = null; // Store position watch ID
 var isTracking = false; // Track if we're following user position
 var userMarker = null; // Marker for user's position
 var trackingButton; // Control button for tracking
+const addedRadiusNode = 20 // meters of added Radius to nodes for the alarm trigger
+const addedRadiusWayRel = 10 // meters of added Radius to ways and relations for the alarm trigger
 
-
+onDeviceReady();
 
 function haversineDist(lat1, lon1, lat2, lon2) {
     // source: https://www.movable-type.co.uk/scripts/latlong.html
@@ -63,7 +65,7 @@ function initMap() {
     var osmAtt = "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors";
     var osm = L.tileLayer(osmURL, {attribution: osmAtt});
 
-    map.setView([39.48, -0.34], 10);
+    map.setView([39.48, -0.34], 15);
     map.addLayer(osm);
 
     // Create layer groups
@@ -262,15 +264,18 @@ const universityIcon = L.divIcon({
 });
 
 async function fetchEducationalInstitutions(bounds) {
+    const boundString = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`
     const query = `
         [out:json][timeout:25];
         (
-            node["amenity"="school"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-            relation["amenity"="university"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+            way[amenity=school](${boundString});
+            node[amenity=school](${boundString});
+            rel[amenity=school](${boundString});
+            way[amenity=university](${boundString});
+            node[amenity=university](${boundString});
+            rel[amenity=university](${boundString});
         );
-        out body;
-        >;
-        out skel qt;
+        out bb;
     `;
 
     try {
@@ -286,16 +291,33 @@ async function fetchEducationalInstitutions(bounds) {
     }
 }
 
+function calculateRadius(pois) {
+    return pois.map(poi => 
+        {   
+            if (poi.type == "node") {
+                poi.radius = addedRadiusNode
+            }
+            else if (poi.type == "way" || poi.type == "relation") {
+                var diag = (haversineDist(poi.bounds.maxlat, poi.bounds.maxlon, poi.bounds.minlat, poi.bounds.minlon)) 
+                poi.lat = poi.bounds.minlat + (poi.bounds.maxlat - poi.bounds.minlat)/2.0
+                poi.lon = poi.bounds.minlon + (poi.bounds.maxlon - poi.bounds.minlon)/2.0
+                poi.radius = diag/2.0 + addedRadiusWayRel
+            }
+        return poi;  
+    })
+}
+
 function sortPOIsByDistance(pois, currentLat, currentLon) {
     return pois.map(poi => ({
         ...poi,
-        distance: haversineDist(currentLat, currentLon, poi.lat, poi.lon)
+        distance: haversineDist(currentLat, currentLon, poi.lat, poi.lon) - poi.radius // negative distance means you are inside the radius
     })).sort((a, b) => a.distance - b.distance);
 }
 
 async function updateMarkers() {
     const bounds = map.getBounds();
     var elements = await fetchEducationalInstitutions(bounds);
+    elements = calculateRadius(elements)
 
     // Clear existing markers
     schoolsLayer.clearLayers();
@@ -306,10 +328,13 @@ async function updateMarkers() {
 
     elements.forEach(element => {
         
-        if (element.type === 'node') {
+        if (element.type === 'node' || element.type === 'way' || element.type === 'relation') {
             const marker = L.marker([element.lat, element.lon], {
                 icon: element.tags.amenity === 'school' ? schoolIcon : universityIcon
             });
+            const circleAroundMarker = L.circle([element.lat, element.lon], element.radius, {
+                color: element.tags.amenity === 'school' ? "#e74c3c" : "#2980b9"
+            } );
 
             const popupContent = `
                 <strong>${element.tags.name || 'Unnamed'}</strong><br>
@@ -321,8 +346,10 @@ async function updateMarkers() {
 
             if (element.tags.amenity === 'school') {
                 schoolsLayer.addLayer(marker);
+                schoolsLayer.addLayer(circleAroundMarker);
             } else {
                 universitiesLayer.addLayer(marker);
+                universitiesLayer.addLayer(circleAroundMarker);
             }
         }
     });
