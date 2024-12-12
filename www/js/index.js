@@ -32,11 +32,11 @@ var userMarker = null; // Marker for user's position
 var trackingButton; // Control button for tracking
 const addedRadiusNode = 20 // meters of added Radius to nodes for the alarm trigger
 const addedRadiusWayRel = 10 // meters of added Radius to ways and relations for the alarm trigger
-
-//onDeviceReady();
+var layer_selector;
 var nearestElement = null;
+var controlLayers = null;
 
-
+onDeviceReady();
 
 function haversineDist(lat1, lon1, lat2, lon2) {
     // source: https://www.movable-type.co.uk/scripts/latlong.html
@@ -84,6 +84,7 @@ function initMap() {
 
     // Add controls and event listeners
     setupMapControls();
+    addCheckboxListeners();
     
     // Initial load of markers
 
@@ -139,7 +140,13 @@ function addTrackingControl() {
 
 function handleSchoolZoneAlert() {
     var currentElement = null;
-    console.log(allElements);
+    //console.log(allElements);
+    var checkboxes = controlLayers.getOverlays();
+     // { Truck 1: true, Truck 2: false, Truck 3: false }
+    schoolsLayerCheckbox = checkboxes.Schools;
+    universityLayerCheckbox = checkboxes.Universities;
+    console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
+
 
     for(var i = 0; i < allElements.length; i++){
         if (allElements[i].distance < 0.0) {
@@ -190,7 +197,7 @@ function handleSchoolZoneAlert() {
 // Function to play beep sound twice
 function playBeep() {
     const beep = new Audio('beep.wav');  // Make sure beep.wav is in your www folder
-    beep.play().catch(err => console.error('Error playing beep:', err));
+    //beep.play().catch(err => console.error('Error playing beep:', err));
 }
 
 function toggleTracking() {
@@ -251,6 +258,7 @@ function updatePosition(position) {
     }
     // Check for school zone alerts
     updateMarkers(position);
+    //console.log(layer_selector)
     
 }
 
@@ -303,22 +311,40 @@ function setupMapControls() {
         "Schools": schoolsLayer,
         "Universities": universitiesLayer
     };
-    L.control.layers(null, overlayMaps).addTo(map);
 
-    layer_selector = document.getElementsByClassName("leaflet-control-layers-selector")
-    //console.log(layer_selector)
-    for (let i = 0; i < layer_selector.length; i++) {
-        layer_selector[i].addEventListener('change', (event) => {
-            if (event.currentTarget.checked) {
-              if (i == 0){ schoolsLayerCheckbox = true;}
-              else if (i == 1) {universityLayerCheckbox = true;}
-            } else {
-                if (i == 0){ schoolsLayerCheckbox = false;}
-                else if (i == 1) {universityLayerCheckbox = false;}
+
+    L.Control.Layers.include({
+        getOverlays: function() {
+          // create hash to hold all layers
+          var control, layers;
+          layers = {};
+          control = this;
+      
+          // loop thru all layers in control
+          control._layers.forEach(function(obj) {
+            var layerName;
+      
+            // check if layer is an overlay
+            if (obj.overlay) {
+              // get name of overlay
+              layerName = obj.name;
+              // store whether it's present on the map or not
+              return layers[layerName] = control._map.hasLayer(obj.layer);
             }
-            //console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
-          })
-    }
+          });
+      
+          return layers;
+        }
+      });
+
+
+      controlLayers = L.control.layers(null, overlayMaps).addTo(map);
+
+      console.log(controlLayers.getOverlays()); // { Truck 1: true, Truck 2: false, Truck 3: false }
+
+
+
+
     // Update markers when map moves
     map.on('zoomend', function() {
         updateMarkers(null);
@@ -327,6 +353,30 @@ function setupMapControls() {
     map.on('dragend', function() {
         updateMarkers(null);
     });
+}
+
+function addCheckboxListeners(){   
+    
+    /*
+    layer_selector = document.getElementsByClassName("leaflet-control-layers-selector")
+    console.log("checkboxes found: ");
+    console.log(layer_selector)
+    for (let i = 0; i < layer_selector.length; i++) {
+        layer_selector[i].addEventListener('change', (event) => {
+            console.log("checkbox action:");
+            if (event.currentTarget.checked) {
+              if (i == 0){ schoolsLayerCheckbox = true;}
+              else if (i == 1) {universityLayerCheckbox = true;}
+            } else {
+                if (i == 0){ schoolsLayerCheckbox = false;}
+                else if (i == 1) {universityLayerCheckbox = false;}
+            }
+            console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
+          })
+    }
+          */
+
+
 }
 
 // Icons for different types of institutions
