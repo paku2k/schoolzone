@@ -33,7 +33,7 @@ var trackingButton; // Control button for tracking
 const addedRadiusNode = 20 // meters of added Radius to nodes for the alarm trigger
 const addedRadiusWayRel = 10 // meters of added Radius to ways and relations for the alarm trigger
 var layer_selector;
-var nearestElement = null;
+var previousElement = null;
 var controlLayers = null;
 
 onDeviceReady();
@@ -136,26 +136,40 @@ function addTrackingControl() {
     });
 
     map.addControl(new TrackingControl());
+    startTracking();
 }
 
 function handleSchoolZoneAlert() {
     var currentElement = null;
-    //console.log(allElements);
     var checkboxes = controlLayers.getOverlays();
-     // { Truck 1: true, Truck 2: false, Truck 3: false }
     schoolsLayerCheckbox = checkboxes.Schools;
     universityLayerCheckbox = checkboxes.Universities;
     console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
-
+    var changedZone = false;
+    var enteredZone = false;
+    var leftZone = false;
 
     for(var i = 0; i < allElements.length; i++){
+        // allElements is sorted by distance --> negative distance means that we are in the radius of that element
         if (allElements[i].distance < 0.0) {
-            if (allElements[i].tags.amenity === 'school' && schoolsLayerCheckbox && currentElement === null) {
+            if (allElements[i].tags.amenity === 'school' && schoolsLayerCheckbox) {
                 currentElement = allElements[i];
+                if(previousElement != allElements[i]){
+                    changedZone = true;
+                }
+                if(previousElement === null){
+                    enteredZone = true;
+                }
                 break;
             }
-            else if (allElements[i].tags.amenity === 'university' && universityLayerCheckbox && currentElement === null) {
+            else if (allElements[i].tags.amenity === 'university' && universityLayerCheckbox) {
                 currentElement = allElements[i];
+                if(previousElement != allElements[i]){
+                    changedZone = true;
+                }
+                if(previousElement === null){
+                    enteredZone = true;
+                }
                 break;
             }
         }
@@ -164,19 +178,24 @@ function handleSchoolZoneAlert() {
         }
     }
 
-    
-    // If we're within the school zone radius and weren't previously
-    if (currentElement != null && nearestElement === null) {
-        // Set current school zone
-        nearestElement = currentElement;
-        
-        // Show alert box with simpler styling
+    leftZone = (previousElement !== null && currentElement === null);
+
+
+    if(changedZone){
+        // If we changed the nearest zone, update the text popup
+        previousElement = currentElement;
         const alertBox = document.getElementById('zone_alert');
         alertBox.style.display = 'flex';  // Changed to flex
         alertBox.style.alignItems = 'center';
         alertBox.style.justifyContent = 'center';
         alertBox.style.gap = '10px';
         alertBox.innerHTML = '⚠️ School Zone! <br>'+currentElement.tags.name;
+    }
+    
+    // If we're within the school zone radius and weren't in any zone previously, play the sound and vibrate 
+    if (enteredZone) {
+        // Set current school zone
+        previousElement = currentElement;
         
         // Vibrate twice
         if (navigator.vibrate) {
@@ -186,12 +205,13 @@ function handleSchoolZoneAlert() {
         // Beep
         playBeep();
     }
-    // If we're outside the radius of our current school zone
-    else if (nearestElement !== null && currentElement === null) {
+    // If we're outside the radius of our any school zone, remove the text popup
+    else if (leftZone) {
         const alertBox = document.getElementById('zone_alert');
         alertBox.style.display = 'none';
-        nearestElement = null;
+        previousElement = null;
     }
+
 }
 
 // Function to play beep sound twice
@@ -209,13 +229,13 @@ function toggleTracking() {
         trackingButton.style.color = 'white';
         //alert("Position tracking started!");
         
-        startTracking();
+        
     } else {
         // Stop tracking
         trackingButton.style.backgroundColor = 'white';
         trackingButton.style.color = 'black';
         //alert("Position tracking stopped!");
-        stopTracking();
+        //stopTracking();
     }
 }
 
@@ -313,6 +333,8 @@ function setupMapControls() {
     };
 
 
+    // Add a function to the leaflet control layers which allows to check whether the control layers are active or inactive
+    // This function checks for each control if it is an overlay and then checks if it is currently present on the map
     L.Control.Layers.include({
         getOverlays: function() {
           // create hash to hold all layers
@@ -340,7 +362,7 @@ function setupMapControls() {
 
       controlLayers = L.control.layers(null, overlayMaps).addTo(map);
 
-      console.log(controlLayers.getOverlays()); // { Truck 1: true, Truck 2: false, Truck 3: false }
+      console.log(controlLayers.getOverlays());
 
 
 
@@ -419,6 +441,9 @@ async function fetchEducationalInstitutions(bounds) {
 }
 
 function calculateRadius(pois) {
+    // calculate the radius depending on the geometry of the school or university
+    // if it is a node, it gets a fixed radius
+    // if it is a way or relation, the radius is calculated based on the size of the school or university
     return pois.map(poi => 
         {   
             if (poi.type == "node") {
@@ -435,12 +460,6 @@ function calculateRadius(pois) {
 }
 
 function sortPOIsByDistance(pois, position) {
-    /*
-    console.log(position);
-    if(position != null){
-        console.log(position === null ? "position is null" : haversineDist(position.coords.latitude, position.coords.longitude, pois[0].lat, pois[0].lon) - pois[0].radius);
-    }
-        */
     return pois.map(poi => ({
         ...poi,
         distance: position === null ? Infinity : haversineDist(position.coords.latitude, position.coords.longitude, poi.lat, poi.lon) - poi.radius // negative distance means you are inside the radius
