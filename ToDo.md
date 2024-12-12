@@ -6,5 +6,5 @@
 - Visualisierung der Zonen um die POIs (die 3 nächsten zu der Position) --OK
 - Warning, wenn in der Zone (Visuell und maybe Audio --OK) 
   - Wenn z.B.: Schule abgewählt ist, dann soll auch die Warnung bei Schule verschwinden
-- Geschwindigkeitsabhängigkeit
+- Geschwindigkeitsabhängigkeit --OK
 - (opt. delayed Aktualisierung, um Abfragen zu limitieren) 
