@@ -56,17 +56,22 @@ h1 {
 }
 
 #zone_alert {
-    display: none;
+    display: none; 
+    width: 60%;        
+    height: 8%;       
     position: fixed;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 16%;         
+    transform: translateY(-50%);
+    -webkit-transform: translateY(-50%);
+    left: 20%;        /* Adjusted to center the wider alert box */
     background-color:  rgba(155, 155, 155, 0.6);
-    padding: 10px 20px;
-    border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-size: 10px; 
+    text-align: center;
+    line-height: 10px; /* Increased from 56px */
+    padding-top: 5px;
+    padding-bottom: 2px;
+    border-radius: 25px;
     z-index: 1000;
-    font-size: 10px;
     font-weight: bold;
     border: 2px solid #e74c3c;  /* Same red as school markers */
 }
@@ -88,6 +93,28 @@ h1 {
 .custom-div-icon {
     background: none;
     border: none;
+}
+
+/* Remove default leaflet control borders */
+.leaflet-bar {
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.leaflet-bar a {
+    border: none !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Circular tracking button */
+.leaflet-control-tracking {
+    border-radius: 50% !important;
+    margin: 0px !important;
+}
+
+.leaflet-bar a:hover {
+    background-color: #3388ff;
+    border: none !important;
 }
 
 /* Dark mode support */

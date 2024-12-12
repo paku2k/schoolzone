@@ -116,15 +116,18 @@ function addTrackingControl() {
             const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
             trackingButton = L.DomUtil.create('a', 'leaflet-control-tracking', container);
             trackingButton.href = '#';
-            trackingButton.innerHTML = '📍'; // Location pin emoji
+            trackingButton.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i>';
             trackingButton.title = 'Track my location';
-            trackingButton.style.fontSize = '18px';
+            trackingButton.style.fontSize = '25px';
             trackingButton.style.textAlign = 'center';
-            trackingButton.style.lineHeight = '30px';
+            trackingButton.style.lineHeight = '36px';
+            trackingButton.style.width = '50px';
+            trackingButton.style.height = '50px';
+            trackingButton.style.borderRadius = '50%';
             trackingButton.style.backgroundColor = 'white';
-            trackingButton.style.width = '30px';
-            trackingButton.style.height = '30px';
-            trackingButton.style.display = 'block';
+            trackingButton.style.display = 'flex';
+            trackingButton.style.justifyContent = 'center';
+            trackingButton.style.alignItems = 'center';
 
             L.DomEvent.on(trackingButton, 'click', function(e) {
                 L.DomEvent.preventDefault(e);
@@ -185,11 +188,13 @@ function handleSchoolZoneAlert() {
         // If we changed the nearest zone, update the text popup
         previousElement = currentElement;
         const alertBox = document.getElementById('zone_alert');
-        alertBox.style.display = 'flex';  // Changed to flex
+        alertBox.style.display = 'flex';
         alertBox.style.alignItems = 'center';
         alertBox.style.justifyContent = 'center';
-        alertBox.style.gap = '10px';
-        alertBox.innerHTML = '⚠️ School Zone! <br>'+currentElement.tags.name;
+        alertBox.style.gap = '10px';  /* Increased from 25px */
+        alertBox.style.flexDirection = 'column'; /* Added to stack the content vertically */
+        alertBox.innerHTML = '<div style="font-size: 18px">⚠️ School Zone! ⚠️</div>' +
+                            '<div style="font-size: 12px">' + currentElement.tags.name + '</div>';
     }
     
     // If we're within the school zone radius and weren't in any zone previously, play the sound and vibrate 
@@ -220,22 +225,20 @@ function playBeep() {
     //beep.play().catch(err => console.error('Error playing beep:', err));
 }
 
+// Update the toggle tracking function to modify the icon color when active
 function toggleTracking() {
     isTracking = !isTracking;
     
     if (isTracking) {
         // Start tracking
         trackingButton.style.backgroundColor = '#3388ff';
-        trackingButton.style.color = 'white';
-        //alert("Position tracking started!");
-        
-        
+        trackingButton.querySelector('i').style.color = 'white';
     } else {
         // Stop tracking
         trackingButton.style.backgroundColor = 'white';
-        trackingButton.style.color = 'black';
+        trackingButton.querySelector('i').style.color = '#333';
         //alert("Position tracking stopped!");
-        //stopTracking();
+        //stopTracking()
     }
 }
 
