@@ -76,6 +76,19 @@ h1 {
     border: 2px solid #e74c3c;  /* Same red as school markers */
 }
 
+#speed_display {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: #333;
+}
+
 .legend {
     background: white;
     padding: 10px;

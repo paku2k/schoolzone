@@ -35,10 +35,16 @@ const addedRadiusWayRel = 10 // meters of added Radius to ways and relations for
 var layer_selector;
 var previousElement = null;
 var controlLayers = null;
+var vehicleSpeedKph = 0.0;
+const vehicleSpeedLimitKph = 30.0;
+let speedDisplay = document.getElementById('speed_display');
+
 
 onDeviceReady();
 
-function haversineDist(lat1, lon1, lat2, lon2) {
+
+// Unused
+function haversineDistance(lat1, lon1, lat2, lon2){
     // source: https://www.movable-type.co.uk/scripts/latlong.html
     const R = 6371e3; // metres
     const phi1 = lat1 * Math.PI/180; // φ, λ in radians
@@ -52,6 +58,12 @@ function haversineDist(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
     return R * c; // in metres
+}
+
+// Using Turf Library
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const distance = turf.distance(turf.point([lon1, lat1]), turf.point([lon2, lat2]), { units: 'meters' });
+    return distance
 }
 
 function onDeviceReady() {
@@ -101,6 +113,9 @@ function initMap() {
 
     // Tracking (Toggle On/Off)
     addTrackingControl();
+
+    //console.log("Distance Turf: " + calculateDistance(55,-24,44,31))
+    //console.log("Distance Haver: " + haversineDistance(55,-24,44,31))
 
    
 }
@@ -155,7 +170,7 @@ function handleSchoolZoneAlert() {
     for(var i = 0; i < allElements.length; i++){
         // allElements is sorted by distance --> negative distance means that we are in the radius of that element
         if (allElements[i].distance < 0.0) {
-            if (allElements[i].tags.amenity === 'school' && schoolsLayerCheckbox) {
+            if (allElements[i].tags.amenity === 'school' && schoolsLayerCheckbox && vehicleSpeedKph > vehicleSpeedLimitKph) {
                 currentElement = allElements[i];
                 if(previousElement != allElements[i]){
                     changedZone = true;
@@ -165,7 +180,7 @@ function handleSchoolZoneAlert() {
                 }
                 break;
             }
-            else if (allElements[i].tags.amenity === 'university' && universityLayerCheckbox) {
+            else if (allElements[i].tags.amenity === 'university' && universityLayerCheckbox && vehicleSpeedKph > vehicleSpeedLimitKph) {
                 currentElement = allElements[i];
                 if(previousElement != allElements[i]){
                     changedZone = true;
@@ -263,10 +278,23 @@ function stopTracking() {
     }
 }
 
+
+function updateSpeed(speed) {
+    if (speed === null){
+        speed = 0.0
+    }
+    speed *= 3.6;
+    vehicleSpeedKph = speed;
+    speedDisplay.textContent = `Speed: ${speed.toFixed(0)} km/h`;
+}
+
 function updatePosition(position) {
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
-    
+    const speed = position.coords.speed;
+    updateSpeed(speed);
+
+    console.log("Speed: " + speed)
     // Update user marker position
     userMarker.setLatLng([lat, lng]);
     
@@ -453,7 +481,7 @@ function calculateRadius(pois) {
                 poi.radius = addedRadiusNode
             }
             else if (poi.type == "way" || poi.type == "relation") {
-                var diag = (haversineDist(poi.bounds.maxlat, poi.bounds.maxlon, poi.bounds.minlat, poi.bounds.minlon)) 
+                var diag = (calculateDistance(poi.bounds.maxlat, poi.bounds.maxlon, poi.bounds.minlat, poi.bounds.minlon)) 
                 poi.lat = poi.bounds.minlat + (poi.bounds.maxlat - poi.bounds.minlat)/2.0
                 poi.lon = poi.bounds.minlon + (poi.bounds.maxlon - poi.bounds.minlon)/2.0
                 poi.radius = diag/2.0 + addedRadiusWayRel
@@ -465,7 +493,7 @@ function calculateRadius(pois) {
 function sortPOIsByDistance(pois, position) {
     return pois.map(poi => ({
         ...poi,
-        distance: position === null ? Infinity : haversineDist(position.coords.latitude, position.coords.longitude, poi.lat, poi.lon) - poi.radius // negative distance means you are inside the radius
+        distance: position === null ? Infinity : calculateDistance(position.coords.latitude, position.coords.longitude, poi.lat, poi.lon) - poi.radius // negative distance means you are inside the radius
     })).sort((a, b) => a.distance - b.distance);
 }
 
