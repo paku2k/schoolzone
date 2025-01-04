@@ -37,7 +37,7 @@ var previousElement = null;
 var controlLayers = null;
 var vehicleSpeedKph = 0.0;
 const vehicleSpeedLimitKph = 30.0;
-let speedDisplay = document.getElementById('speed_display');
+let speed_number = document.getElementById('speed_number');
 
 
 onDeviceReady();
@@ -208,7 +208,8 @@ function handleSchoolZoneAlert() {
         alertBox.style.justifyContent = 'center';
         alertBox.style.gap = '10px';  /* Increased from 25px */
         alertBox.style.flexDirection = 'column'; /* Added to stack the content vertically */
-        alertBox.innerHTML = '<div style="font-size: 18px">⚠️ School Zone! ⚠️</div>' +
+        alertBox.innerHTML = '<div style="font-size: 18px">Faster than ' + vehicleSpeedLimitKph + ' km/h </div>' + 
+        '<div style="font-size: 22px">⚠️ School Zone! ⚠️</div>' +
                             '<div style="font-size: 12px">' + currentElement.tags.name + '</div>';
     }
     
@@ -285,7 +286,7 @@ function updateSpeed(speed) {
     }
     speed *= 3.6;
     vehicleSpeedKph = speed;
-    speedDisplay.textContent = `Speed: ${speed.toFixed(0)} km/h`;
+    speed_number.textContent = speed.toFixed(0);
 }
 
 function updatePosition(position) {
