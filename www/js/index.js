@@ -264,7 +264,7 @@ function startTracking() {
             updatePosition,
             handleLocationError,
             {
-                maximumAge: 2000,
+                maximumAge: 4000,
                 timeout: 5000,
                 enableHighAccuracy: true
             }
