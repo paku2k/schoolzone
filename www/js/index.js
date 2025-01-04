@@ -21,7 +21,8 @@
 // See https://cordova.apache.org/docs/en/latest/cordova/events/events.html#deviceready
 document.addEventListener('deviceready', onDeviceReady, false);
 var map;  // Base Map
-var allElements; // all schools and universities
+var elements; // all schools and universities without distance to current position
+var allElements; // all schools and universities sorted by distance
 var schoolsLayer; // Overlay Map
 var universitiesLayer; // Overlay Map
 var schoolsLayerCheckbox = true;
@@ -36,6 +37,8 @@ var layer_selector;
 var previousElement = null;
 var controlLayers = null;
 var vehicleSpeedKph = 0.0;
+var lastPosition = null;
+var updateMarkersIntervalId;
 const vehicleSpeedLimitKph = 30.0;
 let speed_number = document.getElementById('speed_number');
 
@@ -80,12 +83,12 @@ function initMap() {
     var osmAtt = "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors";
     var osm = L.tileLayer(osmURL, {attribution: osmAtt});
     map.addLayer(osm);
-
+    map.setView([39.48, -0.34], 15);
      // Try to get user's location
     try {
         autocenter();
     }
-    catch {
+    catch (error) {
         map.setView([39.48, -0.34], 15);
         updateMarkers(null);
     }
@@ -162,7 +165,7 @@ function handleSchoolZoneAlert() {
     var checkboxes = controlLayers.getOverlays();
     schoolsLayerCheckbox = checkboxes.Schools;
     universityLayerCheckbox = checkboxes.Universities;
-    console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
+    //console.log("schoolsLayerCheckbox: " + schoolsLayerCheckbox + "\n universityLayerCheckbox: " + universityLayerCheckbox)
     var changedZone = false;
     var enteredZone = false;
     var leftZone = false;
@@ -238,7 +241,7 @@ function handleSchoolZoneAlert() {
 // Function to play beep sound twice
 function playBeep() {
     const beep = new Audio('beep.wav');  // Make sure beep.wav is in your www folder
-    //beep.play().catch(err => console.error('Error playing beep:', err));
+    beep.play().catch(err => logDebugInfo('Error beeping' + err));
 }
 
 // Update the toggle tracking function to modify the icon color when active
@@ -281,7 +284,8 @@ function stopTracking() {
 
 
 function updateSpeed(speed) {
-    if (speed === null){
+    //logDebugInfo("Current Speed: " + speed)
+    if (speed == null){
         speed = 0.0
     }
     speed *= 3.6;
@@ -290,12 +294,22 @@ function updateSpeed(speed) {
 }
 
 function updatePosition(position) {
+    /*
+    var speed = 0.0;
+    if (lastPosition!=null){
+        var timediff = (position.timestamp - lastPosition.timestamp) / 1000.0;
+        var distance = calculateDistance(lastPosition.coords.latitude, lastPosition.coords.longitude, position.coords.latitude, position.coords.longitude);
+        speed = distance/timediff
+    }
+    */
+    lastPosition = position;
+    //logDebugInfo("Position" + position.coords)
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
     const speed = position.coords.speed;
+    console.log(position)
     updateSpeed(speed);
 
-    console.log("Speed: " + speed)
     // Update user marker position
     userMarker.setLatLng([lat, lng]);
     
@@ -308,8 +322,12 @@ function updatePosition(position) {
     if (isTracking) {
         map.setView([lat, lng], map.getZoom());
     }
+
+    allElements = sortPOIsByDistance(elements, position); 
+
+    handleSchoolZoneAlert();
     // Check for school zone alerts
-    updateMarkers(position);
+    //updateMarkers(position);
     //console.log(layer_selector)
     
 }
@@ -319,7 +337,7 @@ function handleLocationError(error) {
     // Optionally show error to user
     if (error.code === error.PERMISSION_DENIED) {
         alert('Please enable location services to use tracking features.');
-        stopTracking();
+        //stopTracking();
         isTracking = false;
         trackingButton.style.backgroundColor = 'white';
         trackingButton.style.color = 'black';
@@ -340,7 +358,16 @@ function autocenter() {
                 
                 updateMarkers(position);
             },
-            handleLocationError
+            function(error) {
+                console.log("First Location error: ", error)
+                map.setView([39.48, -0.34], 15);
+                updateMarkers(null);
+            },
+            {
+                maximumAge: 4000,
+                timeout: 5000,
+                enableHighAccuracy: true
+            }
         );
     }
 }
@@ -389,24 +416,18 @@ function setupMapControls() {
       
           return layers;
         }
-      });
-
-
-      controlLayers = L.control.layers(null, overlayMaps).addTo(map);
-
-      console.log(controlLayers.getOverlays());
-
-
-
-
-    // Update markers when map moves
-    map.on('zoomend', function() {
-        updateMarkers(null);
     });
 
-    map.on('dragend', function() {
-        updateMarkers(null);
-    });
+
+    controlLayers = L.control.layers(null, overlayMaps).addTo(map);
+
+    // start marker update in background
+    updateMarkersInBackground();
+    // setInterval(() => updateMarkers(lastPosition), 2000);
+
+      
+    //createDebugBanner();
+    
 }
 
 function addCheckboxListeners(){   
@@ -433,6 +454,46 @@ function addCheckboxListeners(){
 
 }
 
+function createDebugBanner() {
+    // Überprüfen, ob das Banner bereits existiert
+    if (document.getElementById('debug-banner')) return;
+
+    // Erstelle das Banner
+    const banner = document.createElement('div');
+    banner.id = 'debug-banner';
+    banner.style.position = 'fixed';
+    banner.style.bottom = '0';
+    banner.style.left = '0';
+    banner.style.width = '100%';
+    banner.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    banner.style.color = 'white';
+    banner.style.padding = '10px';
+    banner.style.fontFamily = 'monospace';
+    banner.style.fontSize = '14px';
+    banner.style.zIndex = '10000';
+    banner.style.overflow = 'auto';
+    banner.style.maxHeight = '200px';
+    banner.innerHTML = '<strong>Debugging Informationen:</strong><br>';
+
+    // Füge das Banner zum DOM hinzu
+    document.body.appendChild(banner);
+}
+
+// Funktion zum Hinzufügen von Debug-Informationen
+function logDebugInfo(info) {
+    return;
+    const banner = document.getElementById('debug-banner');
+    if (banner) {
+        const infoLine = document.createElement('div');
+        infoLine.textContent = info;
+        banner.appendChild(infoLine);
+    } else {
+        console.warn('Debug-Banner existiert nicht. Rufe zuerst createDebugBanner() auf.');
+    }
+}
+
+
+
 // Icons for different types of institutions
 const schoolIcon = L.divIcon({
     html: '<div style="background-color: #e74c3c; width: 10px; height: 10px; border-radius: 50%;"></div>',
@@ -447,7 +508,7 @@ const universityIcon = L.divIcon({
 async function fetchEducationalInstitutions(bounds) {
     const boundString = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`
     const query = `
-        [out:json][timeout:25];
+        [out:json][timeout:5];
         (
             way[amenity=school](${boundString});
             node[amenity=school](${boundString});
@@ -464,11 +525,18 @@ async function fetchEducationalInstitutions(bounds) {
             method: 'POST',
             body: query
         });
+
         const data = await response.json();
+        //console.log('json response', data);
+
         return data.elements;
+
+
+        
     } catch (error) {
         console.error('Error fetching data:', error);
-        return [];
+        logDebugInfo('Error fetching data:' + error);
+        return -1;
     }
 }
 
@@ -494,24 +562,38 @@ function calculateRadius(pois) {
 function sortPOIsByDistance(pois, position) {
     return pois.map(poi => ({
         ...poi,
-        distance: position === null ? Infinity : calculateDistance(position.coords.latitude, position.coords.longitude, poi.lat, poi.lon) - poi.radius // negative distance means you are inside the radius
+        distance: position == null ? Infinity : calculateDistance(position.coords.latitude, position.coords.longitude, poi.lat, poi.lon) - poi.radius // negative distance means you are inside the radius
     })).sort((a, b) => a.distance - b.distance);
 }
 
+
+
 async function updateMarkers(position) {
     const bounds = map.getBounds();
-    var elements = await fetchEducationalInstitutions(bounds);
-    elements = calculateRadius(elements)
+    //logDebugInfo("Current Map Bounds: ", bounds)
+    var elements_new = await fetchEducationalInstitutions(bounds);
+    if (elements_new != -1){
+        logDebugInfo('Fetched data successfully ' + elements_new.length);
+        //console.log("Elements fetched successfully: ", elements_new)
+        elements = elements_new;
+        elements = calculateRadius(elements);
+    }
+    else {
+        //console.log("Element error, returned -1 ")
+        logDebugInfo('Fetched data unsuccessfully -1');
 
+        if (elements == null){
+            elements = [];
+        }
+    }
     // Clear existing markers
     schoolsLayer.clearLayers();
     universitiesLayer.clearLayers();
-    
 
-    allElements = sortPOIsByDistance(elements, position); 
     //console.log(allElements);
 
-    allElements.forEach(element => {
+
+    elements.forEach(element => {
         
         if (element.type === 'node' || element.type === 'way' || element.type === 'relation') {
             const marker = L.marker([element.lat, element.lon], {
@@ -538,5 +620,20 @@ async function updateMarkers(position) {
             }
         }
     });
-    handleSchoolZoneAlert();
+    
+
+    return;
 }
+
+
+
+async function updateMarkersInBackground() {
+    while (true) {
+
+        await updateMarkers(lastPosition);
+
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 Sekunde warten
+
+    }
+}
+
